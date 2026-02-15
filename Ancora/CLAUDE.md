@@ -13,7 +13,7 @@ Python ETL + reporting tool that extracts data from spreadsheets, PDFs, and DOCX
 - **Loan**: SBLIC Construction, $73M, SOFR+4.50% floating rate
 - **PM**: Greystar
 - **Investors**: Pondmoon Capital (80%), Greystar (13%), Land Seller LP (7%)
-- **Status**: Lease-up phase, targeting 95% stabilized occupancy by May 2026
+- **Status**: Lease-up phase, targeting 95% stabilized occupancy by November 2026
 
 ## Quick Start
 

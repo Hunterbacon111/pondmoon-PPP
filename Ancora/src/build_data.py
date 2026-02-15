@@ -237,7 +237,7 @@ def extract_all():
         "target_value": 95.0,
         "metric": "occupancy_pct",
         "date_set": "2026-02-10",
-        "deadline": "May 2026",
+        "deadline": "November 2026",
         "source": "Meeting Minutes (Feb 10, 2026)",
     }
 

@@ -32,7 +32,7 @@ def extract():
     # Synthesized action items from meeting minutes analysis
     plan_actions = [
         {
-            "action": "Lease-up Goal: Achieve 95% stabilized occupancy (~210 units) by May 2026",
+            "action": "Lease-up Goal: Achieve 95% stabilized occupancy (~210 units) by November 2026",
             "responsible": "Victoria (Greystar)",
             "status": "in_progress",
             "category": "leasing",
