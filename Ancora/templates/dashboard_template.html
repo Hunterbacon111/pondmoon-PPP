@@ -1282,6 +1282,12 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
   transition: background 0.2s; white-space: nowrap; margin-top: 2px;
 }
 .upload-btn:hover { background: #1a2340; }
+.undo-btn {
+  background: transparent; color: var(--navy); border: 1.5px solid var(--navy); padding: 7px 14px;
+  border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: all 0.2s; white-space: nowrap; margin-top: 2px; margin-left: 6px;
+}
+.undo-btn:hover { background: var(--navy); color: white; }
 .upload-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.5); z-index: 10000;
@@ -1508,6 +1514,7 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
       <div class="section-subtitle">Weekly occupancy, concessions, renewals, and delinquency tracking</div>
     </div>
     <button class="upload-btn" onclick="openUploadPanel('leasing')">Upload / Update Data</button>
+    <button class="undo-btn" onclick="undoLeasing()" title="Restore previous leasing data">&#8630; Undo</button>
   </div>
   <div class="kpi-row" id="leasing-kpis"></div>
 
@@ -1896,8 +1903,8 @@ let _contactsCache = null;
 let _cellCommentsCache = null;
 let _actionsStateCache = null;
 let _apiKeyCache = null;
-let _kimiKeyCache = null;
-const KIMI_KEY_STORAGE = 'ppp_kimi_key';
+let _kimiKeyCache = null;  // kept for backwards compat
+const KIMI_KEY_STORAGE = 'ppp_kimi_key';  // kept for backwards compat
 
 async function serverLoad(dataType) {
   try {
@@ -2051,6 +2058,23 @@ function closeUploadPanel() {
   _selectedFile = null;
 }
 
+async function undoLeasing() {
+  if (!confirm('Restore leasing data to the previous version?')) return;
+  try {
+    var resp = await fetch(API_BASE + '/' + PROPERTY_ID + '/leasing/undo', { method: 'POST' });
+    var result = await resp.json();
+    if (result.ok && result.data) {
+      LEASING_DATA = result.data;
+      hotUpdateLeasing();
+      alert('Leasing data restored to previous version (' + result.restored_from + ')');
+    } else {
+      alert(result.error || 'Undo failed');
+    }
+  } catch (e) {
+    alert('Undo failed: ' + e.message);
+  }
+}
+
 function switchUploadMode(mode) {
   document.getElementById('upload-mode-file').style.display = mode === 'file' ? 'block' : 'none';
   document.getElementById('upload-mode-manual').style.display = mode === 'manual' ? 'block' : 'none';
@@ -2066,14 +2090,15 @@ function handleDrop(event) {
   if (files.length > 0) selectFile(files[0]);
 }
 
-function handleFileSelect(input) {
+function handleUploadFileSelect(input) {
   if (input.files.length > 0) selectFile(input.files[0]);
 }
 
 function selectFile(file) {
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (!['xlsx', 'xls', 'pdf', 'xlsb'].includes(ext)) {
-    showUploadStatus('Unsupported file type. Please use .xlsx, .xls, .pdf, or .xlsb', 'error');
+  var ext = file.name.split('.').pop().toLowerCase();
+  var isImage = ['png', 'jpg', 'jpeg'].includes(ext);
+  if (!isImage && !['xlsx', 'xls', 'pdf', 'xlsb'].includes(ext)) {
+    showUploadStatus('Unsupported file type. Please use .xlsx, .xls, .pdf, .xlsb, .png, or .jpg', 'error');
     return;
   }
   if (file.size > 10 * 1024 * 1024) {
@@ -2086,6 +2111,18 @@ function selectFile(file) {
   document.getElementById('upload-file-info').style.display = 'block';
   document.getElementById('upload-submit-btn').disabled = false;
   document.getElementById('upload-status').style.display = 'none';
+  // Show image preview
+  var imgPreview = document.getElementById('upload-img-preview');
+  if (isImage) {
+    var reader = new FileReader();
+    reader.onload = function(e) { document.getElementById('upload-preview-img').src = e.target.result; };
+    reader.readAsDataURL(file);
+    imgPreview.style.display = 'block';
+    document.getElementById('upload-submit-btn').textContent = 'Analyze with AI & Save';
+  } else {
+    imgPreview.style.display = 'none';
+    document.getElementById('upload-submit-btn').textContent = 'Upload & Process';
+  }
 }
 
 // Click dropzone to open file picker
@@ -2182,46 +2219,24 @@ function showOcrStatus(msg, type) {
   el.style.display = 'block';
 }
 
-// ===== KIMI K2.5 OCR =====
-function getKimiKey() {
-  if (_kimiKeyCache) return _kimiKeyCache;
-  return localStorage.getItem(KIMI_KEY_STORAGE) || '';
-}
-
-function promptOcrApiKey() {
-  var key = prompt('Enter your Moonshot (Kimi) API Key:');
-  if (key && key.trim()) {
-    key = key.trim();
-    _kimiKeyCache = key;
-    localStorage.setItem(KIMI_KEY_STORAGE, key);
-    serverSave('kimi_key', key);
-    showOcrStatus('Kimi API Key saved! Click "Analyze with AI" again.', 'success');
-  }
-}
-
+// ===== CLAUDE VISION OCR =====
 async function analyzeScreenshot() {
   if (!_ocrImageBase64) return;
-  var kimiKey = getKimiKey();
-  if (!kimiKey) {
-    var el = document.getElementById('ocr-status');
-    el.innerHTML = 'No Kimi API Key found. <a href="javascript:void(0)" onclick="promptOcrApiKey()" style="color:var(--gold);font-weight:600;text-decoration:underline;cursor:pointer">Click here to enter your Moonshot API Key</a>';
-    el.className = 'ocr-status error';
-    el.style.display = 'block';
-    return;
-  }
   var btn = document.getElementById('ocr-analyze-btn');
   btn.disabled = true;
   btn.textContent = 'Analyzing...';
-  showOcrStatus('Sending screenshot to Kimi K2.5 for OCR analysis...', 'analyzing');
+  showOcrStatus('Sending screenshot to Claude for analysis...', 'analyzing');
 
   try {
-    var result = await callKimiVision(_ocrImageBase64, _ocrImageMediaType);
+    var result = await callClaudeVision(_ocrImageBase64, _ocrImageMediaType);
     fillFormFromOcr(result);
     showOcrStatus('Data extracted successfully! Please review and confirm below.', 'success');
   } catch (err) {
     console.error('OCR error:', err);
-    if (err.message === 'NO_KEY' || err.message === 'INVALID_KEY') {
-      showOcrStatus('Invalid Kimi API Key. Click "Analyze" again to re-enter.', 'error');
+    if (err.message === 'NO_KEY') {
+      showOcrStatus('No Anthropic API Key found. Please set it in the AI Chat section (gear icon).', 'error');
+    } else if (err.message === 'INVALID_KEY') {
+      showOcrStatus('Invalid Anthropic API Key. Please update it in the AI Chat section (gear icon).', 'error');
     } else {
       showOcrStatus('Could not extract data: ' + err.message + '. Please fill in manually.', 'error');
     }
@@ -2231,69 +2246,21 @@ async function analyzeScreenshot() {
   }
 }
 
-async function callKimiVision(base64Data, mediaType) {
-  var kimiKey = getKimiKey();
-  if (!kimiKey) throw new Error('NO_KEY');
-
-  var ocrPrompt = 'You are analyzing a screenshot of a weekly leasing update spreadsheet for an apartment property.\n' +
-    'Extract the following data and return ONLY a valid JSON object (no markdown, no explanation, no code fences):\n' +
-    '{\n' +
-    '  "week_ending": "YYYY-MM-DD format or null",\n' +
-    '  "occupied_num": number or null,\n' +
-    '  "leased_num": number or null,\n' +
-    '  "occupancy_pct": number or null,\n' +
-    '  "leased_pct": number or null,\n' +
-    '  "new_prospects": number or null,\n' +
-    '  "walk_in_traffic": number or null,\n' +
-    '  "gross_leases": number or null,\n' +
-    '  "net_leases": number or null,\n' +
-    '  "move_in": number or null,\n' +
-    '  "move_out": number or null,\n' +
-    '  "trend_30_day": number or null,\n' +
-    '  "trend_60_day": number or null,\n' +
-    '  "psf_all_leases": number or null\n' +
-    '}\n' +
-    'Rules:\n' +
-    '- Percentages should be numbers (e.g., 87.5 not "87.5%")\n' +
-    '- If a value is not visible or unclear, use null\n' +
-    '- For week_ending, look for dates like "Week Ending", "WE", or the latest date shown\n' +
-    '- occupied_num and leased_num are unit counts (integers)\n' +
-    '- PSF means price per square foot (a dollar amount like 2.85)\n' +
-    '- Trend values are percentage numbers\n' +
-    '- Return ONLY the JSON object, nothing else';
-
-  // Kimi K2.5 uses OpenAI-compatible API format
-  var response = await fetch('https://api.moonshot.ai/v1/chat/completions', {
+async function callClaudeVision(base64Data, mediaType) {
+  // Call server-side Claude proxy (API key stored on server)
+  var response = await fetch(API_BASE + '/' + PROPERTY_ID + '/ocr', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + kimiKey,
-    },
-    body: JSON.stringify({
-      model: 'kimi-k2.5',
-      max_tokens: 1024,
-      temperature: 0.6,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image_url', image_url: { url: 'data:' + mediaType + ';base64,' + base64Data } },
-          { type: 'text', text: ocrPrompt }
-        ]
-      }]
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: base64Data, media_type: mediaType }),
   });
 
-  if (!response.ok) {
-    var err = await response.json().catch(function() { return {}; });
-    if (response.status === 401) throw new Error('INVALID_KEY');
-    throw new Error(err.error?.message || 'API Error ' + response.status);
-  }
-
   var data = await response.json();
-  var text = data.choices[0].message.content.trim();
-  // Strip markdown code fences if present
-  text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
-  return JSON.parse(text);
+  if (!response.ok) {
+    if (data.error === 'NO_KEY') throw new Error('NO_KEY');
+    if (data.error === 'INVALID_KEY') throw new Error('INVALID_KEY');
+    throw new Error(data.error || 'API Error ' + response.status);
+  }
+  return data.data;
 }
 
 function fillFormFromOcr(data) {
@@ -2327,6 +2294,77 @@ function fillFormFromOcr(data) {
 
 async function submitFileUpload() {
   if (!_selectedFile || !_currentUploadType) return;
+  var ext = _selectedFile.name.split('.').pop().toLowerCase();
+  var isImage = ['png', 'jpg', 'jpeg'].includes(ext);
+
+  if (isImage) {
+    await submitImageUpload();
+  } else {
+    await submitSpreadsheetUpload();
+  }
+}
+
+async function submitImageUpload() {
+  var btn = document.getElementById('upload-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing with Claude...';
+  showUploadStatus('Reading image and sending to Claude for analysis...', 'info');
+
+  try {
+    var base64Data = await new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function() {
+        var result = reader.result;
+        var base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(_selectedFile);
+    });
+    var mediaType = _selectedFile.type || 'image/png';
+
+    var ocrResult = await callClaudeVision(base64Data, mediaType);
+    showUploadStatus('Data extracted! Saving to dashboard...', 'info');
+
+    if (!ocrResult.week_ending) {
+      showUploadStatus('Claude could not find a week ending date in the image. Please enter manually.', 'error');
+      switchUploadMode('manual');
+      fillFormFromOcr(ocrResult);
+      btn.disabled = false;
+      btn.textContent = 'Analyze with AI & Save';
+      return;
+    }
+
+    var resp = await fetch(API_BASE + '/' + PROPERTY_ID + '/leasing/add_week', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ocrResult),
+    });
+    var result = await resp.json();
+    if (result.ok && result.data) {
+      LEASING_DATA = result.data;
+      hotUpdateLeasing();
+      showUploadStatus('Week ' + ocrResult.week_ending + ' added successfully! Charts refreshed.', 'success');
+      setTimeout(closeUploadPanel, 2000);
+    } else {
+      showUploadStatus('Save failed: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (err) {
+    console.error('Image upload error:', err);
+    if (err.message === 'NO_KEY') {
+      showUploadStatus('No Anthropic API Key. Please set it in the AI Chat section (gear icon).', 'error');
+    } else if (err.message === 'INVALID_KEY') {
+      showUploadStatus('Invalid Anthropic API Key. Please update it in the AI Chat section.', 'error');
+    } else {
+      showUploadStatus('Analysis failed: ' + err.message, 'error');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analyze with AI & Save';
+  }
+}
+
+async function submitSpreadsheetUpload() {
   var btn = document.getElementById('upload-submit-btn');
   btn.disabled = true;
   btn.textContent = 'Processing...';
@@ -2541,7 +2579,7 @@ function renderLeasing() {
   ].join('');
 
   // --- Occupancy Chart ---
-  const chartWeeks = weeks.filter(w => w.occupancy_pct);
+  const chartWeeks = weeks.filter(w => w.occupancy_pct !== null && w.occupancy_pct !== undefined && typeof w.occupancy_pct === 'number');
   const labels = chartWeeks.map(w => { const d = new Date(w.week_ending); return (d.getMonth()+1)+'/'+d.getDate(); });
   const occData = chartWeeks.map(w => w.occupancy_pct);
   const leasedData = chartWeeks.map(w => w.leased_pct);
@@ -2566,7 +2604,7 @@ function renderLeasing() {
   }
 
   // --- Leasing Activity Chart ---
-  const actWeeks = weeks.filter(w => w.source_type === 'xlsx');
+  const actWeeks = weeks.filter(w => w.source_type !== 'docx');
   if (actWeeks.length > 0) {
     const actLabels = actWeeks.map(w => { const d = new Date(w.week_ending); return (d.getMonth()+1)+'/'+d.getDate(); });
     new Chart(document.getElementById('leasing-activity-chart'), {
@@ -2598,7 +2636,7 @@ function renderLeasing() {
 
   // --- Weekly Metrics Table (preserving original xlsx table) ---
   const wtc = document.getElementById('weekly-table-container');
-  const xlsxWeeks = weeks.filter(w => w.source_type === 'xlsx').slice().reverse(); // newest first like original
+  const xlsxWeeks = weeks.filter(w => w.source_type !== 'docx').slice().reverse(); // newest first like original
   if (xlsxWeeks.length > 0) {
     let t = '<table class="leasing-table"><thead><tr><th>Metric</th>';
     xlsxWeeks.forEach(w => {
@@ -2629,18 +2667,19 @@ function renderLeasing() {
         let v = w[row.key];
         let cls = '';
         let formatted;
-        if (v === null || v === undefined || v === '-') { formatted = '-'; }
+        if (v === null || v === undefined || v === '-' || v === '%' || typeof v === 'string') { formatted = '-'; }
+        else if (typeof v !== 'number' || isNaN(v)) { formatted = '-'; }
         else if (row.fmt === 'pct') {
           formatted = v.toFixed(2) + '%';
           cls = 'pct-cell';
           if (wi < xlsxWeeks.length - 1) {
             const prev = xlsxWeeks[wi + 1]?.[row.key];
-            if (prev !== null && prev !== undefined) {
+            if (prev !== null && prev !== undefined && typeof prev === 'number' && !isNaN(prev)) {
               cls += v > prev ? ' trend-up-cell' : v < prev ? ' trend-down-cell' : '';
             }
           }
         }
-        else if (row.fmt === 'dollar2') { formatted = v !== null ? '$' + v.toFixed(2) : '-'; }
+        else if (row.fmt === 'dollar2') { formatted = '$' + v.toFixed(2); }
         else { formatted = Math.round(v).toLocaleString(); }
         t += `<td class="${cls}">${formatted}</td>`;
       });
@@ -5172,12 +5211,13 @@ checkForUpdatedData();
            ondragleave="this.classList.remove('dragover')">
         <div class="dropzone-icon">+</div>
         <div>Drag &amp; drop a file here, or click to browse</div>
-        <div class="dropzone-hint" id="upload-hint">Supported: .xlsx, .xls, .pdf, .xlsb (max 10MB)</div>
-        <input type="file" id="upload-file-input" accept=".xlsx,.xls,.pdf,.xlsb" onchange="handleFileSelect(this)" style="display:none">
+        <div class="dropzone-hint" id="upload-hint">Supported: .xlsx, .xls, .pdf, .xlsb, .png, .jpg (max 10MB)</div>
+        <input type="file" id="upload-file-input" accept=".xlsx,.xls,.pdf,.xlsb,image/*" onchange="handleUploadFileSelect(this)" style="display:none">
       </div>
       <div id="upload-file-info" style="display:none; margin:12px 0; padding:10px; background:#f0f4f8; border-radius:6px; font-size:13px">
         <span id="upload-file-name" style="font-weight:600"></span>
         <span id="upload-file-size" style="color:#999; margin-left:8px"></span>
+        <div id="upload-img-preview" style="display:none; margin-top:8px"><img id="upload-preview-img" style="max-width:100%; max-height:200px; border-radius:4px"></div>
       </div>
       <button class="upload-submit" id="upload-submit-btn" onclick="submitFileUpload()" disabled>Upload &amp; Process</button>
     </div>

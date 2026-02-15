@@ -74,6 +74,18 @@ def _parse_xlsx_weekly(filepath):
             "psf_executed_effective": cell_val(17),
         }
 
+        # Sanitize non-numeric values (e.g. "%", "-", empty strings) to None
+        for key in entry:
+            if key == "week_ending":
+                continue
+            v = entry[key]
+            if v is not None and not isinstance(v, (int, float)):
+                # Try to parse as number, otherwise set to None
+                try:
+                    entry[key] = float(v)
+                except (ValueError, TypeError):
+                    entry[key] = None
+
         # Convert percentages stored as decimals (e.g. 0.0955 -> 9.55)
         for key in ["leased_pct", "occupied_pct", "trend_30_day", "trend_60_day"]:
             if entry[key] is not None and isinstance(entry[key], (int, float)):
