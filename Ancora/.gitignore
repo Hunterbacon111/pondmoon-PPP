@@ -1,0 +1,35 @@
+# ===== 数据文件（敏感财务数据，不上传 GitHub）=====
+Data_Annual_Budget/
+Data_Comps/
+Data_Financials/
+Data_Leasing/
+Data_Loan/
+Data_Marketing_Others/
+Data_Minutes/
+Data_Project Information/
+Data_T12P&L/
+
+# ===== 生成文件（build 自动生成，不需要版本管理）=====
+data_output/
+dashboard/
+
+# ===== Python =====
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.code-workspace
