@@ -1629,8 +1629,13 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
 
 <!-- ===== HUD LOAN SECTION ===== -->
 <div id="loan" class="section">
-  <div class="section-title">HUD Loan Profile</div>
-  <div class="section-subtitle">FHA Section 221(d)(4) — Fixed rate, fully amortizing, non-recourse</div>
+  <div class="section-header-row">
+    <div>
+      <div class="section-title">HUD Loan Profile</div>
+      <div class="section-subtitle">FHA Section 221(d)(4) — Fixed rate, fully amortizing, non-recourse</div>
+    </div>
+    <button class="upload-btn" onclick="openUploadPanel('loan')">Upload / Update Data</button>
+  </div>
 
   <!-- Loan headline banner -->
   <div id="loan-headline"></div>
@@ -1674,8 +1679,13 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
 
 <!-- ===== COMPS SECTION ===== -->
 <div id="comps" class="section">
-  <div class="section-title">Market Comparables</div>
-  <div class="section-subtitle">Greenwood at Katy vs peer properties in Katy / West Houston &mdash; Source: Marketing Presentation (Feb 2026)</div>
+  <div class="section-header-row">
+    <div>
+      <div class="section-title">Market Comparables</div>
+      <div class="section-subtitle">Greenwood at Katy vs peer properties in Katy / West Houston &mdash; Source: Marketing Presentation (Feb 2026)</div>
+    </div>
+    <button class="upload-btn" onclick="openUploadPanel('comps')">Upload / Update Data</button>
+  </div>
   <div class="kpi-row" id="comps-kpis"></div>
 
   <!-- GWK Concession Banner -->
@@ -1714,8 +1724,13 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
 
 <!-- ===== 2026 BUDGET SECTION ===== -->
 <div id="budget" class="section">
-  <div class="section-title">2026 Budget</div>
-  <div class="section-subtitle" id="budget-subtitle">Annual Operating Budget &mdash; Greenwood at Katy</div>
+  <div class="section-header-row">
+    <div>
+      <div class="section-title">2026 Budget</div>
+      <div class="section-subtitle" id="budget-subtitle">Annual Operating Budget &mdash; Greenwood at Katy</div>
+    </div>
+    <button class="upload-btn" onclick="openUploadPanel('budget')">Upload / Update Data</button>
+  </div>
   <div class="kpi-row" id="budget-kpis"></div>
 
   <div class="chart-row">
@@ -1748,8 +1763,13 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
 
 <!-- ===== ACTIONS SECTION ===== -->
 <div id="actions" class="section">
-  <div class="section-title">Management Actions</div>
-  <div class="section-subtitle">Decisions and action items from weekly calls, emails, and strategic plans</div>
+  <div class="section-header-row">
+    <div>
+      <div class="section-title">Management Actions</div>
+      <div class="section-subtitle">Decisions and action items from weekly calls, emails, and strategic plans</div>
+    </div>
+    <button class="upload-btn" onclick="openUploadPanel('minutes')">Upload Meeting Minutes</button>
+  </div>
   <div id="top-goal-container"></div>
   <div id="strategy-summary-container"></div>
   <div class="actions-filters" id="actions-filters"></div>
@@ -2035,20 +2055,44 @@ function openUploadPanel(type) {
   _currentUploadType = type;
   _selectedFile = null;
   document.getElementById('upload-overlay').style.display = 'flex';
-  document.getElementById('upload-title').textContent =
-    type === 'leasing' ? 'Update Leasing Data' : 'Update T-12 Financials';
+  var titles = {
+    'leasing': 'Update Leasing Data',
+    'financials': 'Update T-12 Financials',
+    'budget': 'Update Budget Data',
+    'loan': 'Update Loan Data',
+    'comps': 'Update Market Comps',
+    'minutes': 'Upload Meeting Minutes',
+  };
+  document.getElementById('upload-title').textContent = titles[type] || 'Upload File';
   document.getElementById('upload-file-input').value = '';
   document.getElementById('upload-file-info').style.display = 'none';
   document.getElementById('upload-submit-btn').disabled = true;
   document.getElementById('upload-status').style.display = 'none';
-  // Show/hide manual entry based on type
-  if (type === 'financials') {
+  // Show/hide manual entry tab — only for leasing
+  var tabManual = document.getElementById('upload-tab-manual');
+  if (type === 'leasing') {
+    tabManual.style.display = '';
+    document.getElementById('manual-leasing-form').style.display = 'block';
+    document.getElementById('manual-financials-msg').style.display = 'none';
+  } else if (type === 'financials') {
+    tabManual.style.display = '';
     document.getElementById('manual-leasing-form').style.display = 'none';
     document.getElementById('manual-financials-msg').style.display = 'block';
   } else {
-    document.getElementById('manual-leasing-form').style.display = 'block';
+    tabManual.style.display = 'none';
+    document.getElementById('manual-leasing-form').style.display = 'none';
     document.getElementById('manual-financials-msg').style.display = 'none';
   }
+  // Update accepted file types hint
+  var hintMap = {
+    'leasing': 'Supported: .xlsx, .xls, .docx, .png, .jpg (max 10MB)',
+    'financials': 'Supported: .xlsx, .xls, .pdf (max 10MB)',
+    'budget': 'Supported: .xlsx, .xls, .xlsb (max 10MB)',
+    'loan': 'Supported: .xlsx, .xls, .pdf (max 10MB)',
+    'comps': 'Supported: .pdf (max 10MB)',
+    'minutes': 'Supported: .docx (max 10MB)',
+  };
+  document.getElementById('upload-hint').textContent = hintMap[type] || 'Max 10MB';
   switchUploadMode('file');
 }
 
@@ -2378,16 +2422,19 @@ async function submitSpreadsheetUpload() {
   try {
     var resp = await fetch(API_BASE + '/' + PROPERTY_ID + '/upload/' + _currentUploadType, { method: 'POST', body: formData });
     var result = await resp.json();
-    if (result.ok && result.data) {
-      if (_currentUploadType === 'leasing') {
+    if (result.ok) {
+      if (result.data && _currentUploadType === 'leasing') {
         LEASING_DATA = result.data;
         hotUpdateLeasing();
-      } else {
+        showUploadStatus('Data updated successfully! Charts refreshed.', 'success');
+      } else if (result.data && _currentUploadType === 'financials') {
         FINANCIAL_DATA = result.data;
         hotUpdateFinancial();
+        showUploadStatus('Data updated successfully! Charts refreshed.', 'success');
+      } else {
+        showUploadStatus('File uploaded! Dashboard is rebuilding — please refresh in a few seconds.', 'success');
       }
-      showUploadStatus('Data updated successfully! Charts refreshed.', 'success');
-      setTimeout(closeUploadPanel, 1500);
+      setTimeout(closeUploadPanel, 2000);
     } else {
       showUploadStatus('Error: ' + (result.error || 'Unknown error'), 'error');
     }
@@ -5227,7 +5274,7 @@ checkForUpdatedData();
         <div class="dropzone-icon">+</div>
         <div>Drag &amp; drop a file here, or click to browse</div>
         <div class="dropzone-hint" id="upload-hint">Supported: .xlsx, .xls, .pdf, .xlsb, .png, .jpg (max 10MB)</div>
-        <input type="file" id="upload-file-input" accept=".xlsx,.xls,.pdf,.xlsb,image/*" onchange="handleUploadFileSelect(this)" style="display:none">
+        <input type="file" id="upload-file-input" accept=".xlsx,.xls,.pdf,.xlsb,.docx,image/*" onchange="handleUploadFileSelect(this)" style="display:none">
       </div>
       <div id="upload-file-info" style="display:none; margin:12px 0; padding:10px; background:#f0f4f8; border-radius:6px; font-size:13px">
         <span id="upload-file-name" style="font-weight:600"></span>
