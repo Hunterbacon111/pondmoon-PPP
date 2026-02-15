@@ -1146,6 +1146,7 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
 }
 
 /* Responsive */
+/* --- Tablet (1000px) --- */
 @media (max-width: 1000px) {
   .cover-body { grid-template-columns: 1fr; }
   .chart-row, .detail-row { grid-template-columns: 1fr; }
@@ -1154,12 +1155,69 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
   .cover-body { padding: 32px; }
   .cover-title-block h1 { font-size: 36px; }
 }
+/* --- Small tablet / Large phone (768px) --- */
+@media (max-width: 768px) {
+  .nav { overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-tab { padding: 12px 16px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+  .cover-hero, .cover-overlay { height: 40vh; }
+  .cover-overlay { padding: 24px; }
+  .cover-body { padding: 24px; gap: 24px; }
+  .cover-info-grid { grid-template-columns: 1fr; gap: 12px; }
+  .cover-photos { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .leasing-table-wrap, .budget-table-wrap { -webkit-overflow-scrolling: touch; }
+  .leasing-table td, .leasing-table th { padding: 8px; }
+  .budget-table td, .budget-table th { padding: 8px; }
+  .leasing-table th:first-child { min-width: 110px; }
+  .exp-matrix-table td, .exp-matrix-table th { padding: 8px; }
+  .actions-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+/* --- Phone (600px) --- */
 @media (max-width: 600px) {
   .kpi-row { grid-template-columns: 1fr; }
-  .main { padding: 20px; }
-  .topbar { padding: 12px 20px; }
-  .nav { padding: 0 20px; }
+  .main { padding: 16px; }
+  .topbar { padding: 10px 16px; flex-wrap: wrap; gap: 4px; }
+  .topbar-address { font-size: 11px; }
+  .topbar-right { font-size: 11px; }
+  .nav { padding: 0 16px; }
+  .section-title { font-size: 20px; }
+  .section-subtitle { font-size: 12px; }
+  .section-header-row { flex-direction: column; gap: 8px; }
+  .upload-btn { align-self: flex-start; }
+  .undo-btn { align-self: flex-start; }
+  .chart-card { padding: 16px; }
+  .chart-row { gap: 12px; }
+  .kpi-card { padding: 16px; }
+  .kpi-card .value { font-size: 22px; }
+  .detail-row { gap: 12px; }
+  .cover-hero, .cover-overlay { height: 35vh; }
+  .cover-overlay { padding: 16px; }
+  .cover-body { padding: 16px; gap: 16px; }
   .cover-title-block h1 { font-size: 28px; }
+  .cover-title-block .tagline { font-size: 14px; }
+  .add-action-bar { flex-direction: column; }
+  .add-action-bar input.action-input { width: 100%; }
+  .add-action-bar input.responsible-input { width: 100%; }
+  .contacts-add-bar { flex-direction: column; }
+  .contacts-add-bar .contact-phone-input { width: 100%; }
+  .contacts-add-bar .contact-name-input,
+  .contacts-add-bar .contact-role-input,
+  .contact-email-wrapper { min-width: 0; width: 100%; }
+  .contact-card { gap: 10px; padding: 10px; }
+  .contact-avatar { width: 34px; height: 34px; font-size: 13px; }
+  .contacts-group-header { padding: 12px 16px; }
+  .contacts-search-bar { margin-bottom: 16px; }
+  .top-goal { flex-direction: column; gap: 12px; }
+  .top-goal-progress { min-width: auto; align-self: flex-start; }
+  .strategy-card { padding: 16px; }
+}
+/* --- Extra small phone (480px) --- */
+@media (max-width: 480px) {
+  .upload-panel { padding: 16px; }
+  .login-card { padding: 28px 24px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .cover-info-item .value { font-size: 15px; }
+  .kpi-card .label { font-size: 11px; }
 }
 
 /* ===== PRINT STYLES FOR PDF EXPORT ===== */
@@ -1773,7 +1831,7 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); c
   <div id="top-goal-container"></div>
   <div id="strategy-summary-container"></div>
   <div class="actions-filters" id="actions-filters"></div>
-  <div id="actions-table-container"></div>
+  <div class="actions-table-wrap" id="actions-table-container"></div>
   <div class="add-action-bar">
     <input type="text" class="action-input" id="new-action-text" placeholder="Add new action item...">
     <input type="text" class="responsible-input" id="new-action-resp" placeholder="Responsible">
